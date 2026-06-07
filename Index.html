@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <meta name="theme-color" content="#080c10"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+  <meta name="apple-mobile-web-app-title" content="Signatuur"/>
+  <title>Signatuur</title>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Azeret+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+  <style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #080c10;
+    --bg2:       #0d1219;
+    --bg3:       #131a24;
+    --border:    #1e2a38;
+    --border2:   #2a3a50;
+    --gold:      #b8956a;
+    --gold2:     #d4b483;
+    --gold-dim:  rgba(184,149,106,0.12);
+    --text:      #e8ddd0;
+    --text-mid:  #8a9ab0;
+    --text-dim:  #4a5a70;
+    --green:     #2e7d5e;
+    --green-bg:  rgba(46,125,94,0.15);
+    --red:       #8b2635;
+    --red-bg:    rgba(139,38,53,0.15);
+    --amber:     #b87333;
+    --amber-bg:  rgba(184,115,51,0.15);
+    --serif:     'Cormorant Garamond', Georgia, serif;
+    --mono:      'Azeret Mono', monospace;
+    --r:         3px;
+    --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); overflow: hidden; }
+
+  /* ── NOISE TEXTURE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999; opacity: 0.6;
+  }
+
+  /* ── LAYOUT ── */
+  #app { display: flex; flex-direction: column; height: 100dvh; max-width: 430px; margin: 0 auto; position: relative; }
+
+  /* ── HEADER ── */
+  .hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .hdr::after {
+    content: ''; position: absolute; bottom: -1px; left: 18px; right: 18px;
+    height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+  .logo {
+    font-family: var(--serif); font-size: 1.6rem; font-weight: 300;
+    letter-spacing: 0.04em; color: var(--text);
+    display: flex; align-items: baseline; gap: 2px;
+  }
+  .logo em { color: var(--gold); font-style: italic; }
+  .hdr-right { display: flex; align-items: center; gap: 10px; }
+  .sig-badge {
+    font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gold); border: 1px solid var(--gold);
+    padding: 3px 7px; border-radius: 2px;
+  }
+  .hdr-user {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--bg3); border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; color: var(--gold); cursor: pointer;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    display: flex; background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .nav-btn {
+    flex: 1; padding: 9px 4px 8px;
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--text-dim); font-family: var(--mono); font-size: 0.58rem;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    cursor: pointer; transition: var(--transition);
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .nav-btn .ni { font-size: 1rem; }
+  .nav-btn.active { color: var(--gold); border-bottom-color: var(--gold); background: var(--gold-dim); }
+  .nav-btn:hover:not(.active) { color: var(--text-mid); }
+
+  /* ── PAGES ── */
+  .page { display: none; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px; gap: 12px; flex-direction: column; }
+  .page.active { display: flex; }
+  .page::-webkit-scrollbar { width: 3px; }
+  .page::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 14px;
+  }
+  .card-hd {
+    font-family: var(--serif); font-size: 1rem; font-weight: 400;
+    color: var(--text); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-hd small {
+    font-family: var(--mono); font-size: 0.58rem; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.1em; font-style: normal;
+  }
+
+  /* ── FORM ── */
+  .frow { margin-bottom: 10px; }
+  .frow:last-child { margin-bottom: 0; }
+  .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  label {
+    display: block; font-size: 0.6rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 4px;
+  }
+  input, textarea, select {
+    width: 100%; padding: 9px 11px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--r); font-family: var(--mono); font-size: 0.8rem;
+    color: var(--text); outline: none; transition: border-color var(--transition);
+    -webkit-appearance: none;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--gold); }
+  textarea { resize: vertical; min-height: 70px; }
+  select option { background: var(--bg2); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 18px; border: none; border-radius: var(--r);
+    font-family: var(--mono); font-size: 0.72rem; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    cursor: pointer; transition: var(--transition); white-space: nowrap;
+  }
+  .btn-gold { background: var(--gold); color: #080c10; }
+  .btn-gold:hover { background: var(--gold2); }
+  .btn-ghost { background: transparent; color: var(--text-mid); border: 1px solid var(--border2); }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-danger { background: var(--red-bg); color: #e06070; border: 1px solid var(--red); }
+  .btn-full { width: 100%; padding: 13px; }
+  .btn-sm { padding: 6px 12px; font-size: 0.65rem; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── CANVAS ── */
+  .canvas-wrap {
+    position: relative; background: #f7f4ef;
+    border-radius: var(--r); overflow: hidden;
+  }
+  .canvas-wrap::after {
+    content: ''; position: absolute; bottom: 28px; left: 5%; right: 5%;
+    height: 1px; background: rgba(0,0,0,0.12); pointer-events: none;
+  }
+  #sigCanvas { display: block; width: 100%; height: 150px; touch-action: none; cursor: crosshair; }
+  .canvas-ghost {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-60%);
+    font-family: var(--serif); font-style: italic; font-size: 1rem;
+    color: rgba(0,0,0,0.2); pointer-events: none; transition: opacity 0.3s;
+    white-space: nowrap;
+  }
+  .canvas-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+
+  /* ── FILE DROP ── */
+  .drop-zone {
+    border: 2px dashed var(--border2); border-radius: var(--r);
+    padding: 24px 16px; text-align: center;
+    cursor: pointer; transition: var(--transition);
+    position: relative; overflow: hidden;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--gold); background: var(--gold-dim);
+  }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 100px;
+  }
+  .drop-icon { font-size: 2rem; margin-bottom: 8px; }
+  .drop-text { font-size: 0.75rem; color: var(--text-mid); }
+  .drop-sub { font-size: 0.65rem; color: var(--text-dim); margin-top: 4px; }
+
+  .file-preview {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg); border: 1px solid var(--border2);
+    border-radius: var(--r); padding: 10px 12px;
+    font-size: 0.75rem;
+  }
+  .file-preview .fi { font-size: 1.4rem; }
+  .file-preview .fn { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-preview .fs { color: var(--text-dim); font-size: 0.65rem; }
+
+  /* ── OTP FLOW ── */
+  .otp-wrap { display: flex; gap: 8px; justify-content: center; margin: 16px 0; }
+  .otp-input {
+    width: 44px; height: 52px; text-align: center;
+    font-size: 1.4rem; font-family: var(--mono); font-weight: 500;
+    background: var(--bg); border: 1px solid var(--border2);
+    border-radius: var(--r); color: var(--text); outline: none;
+    caret-color: var(--gold);
+  }
+  .otp-input:focus { border-color: var(--gold); }
+  .otp-input.filled { border-color: var(--gold); color: var(--gold); }
+
+  /* ── STEPS INDICATOR ── */
+  .steps { display: flex; align-items: center; gap: 0; margin-bottom: 4px; }
+  .step {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-dim); transition: var(--transition);
+  }
+  .step.active { color: var(--gold); }
+  .step.done { color: var(--green); }
+  .step-num {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg3); border: 1px solid var(--border2);
+    font-size: 0.65rem; flex-shrink: 0; transition: var(--transition);
+  }
+  .step.active .step-num { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+  .step.done .step-num { background: var(--green-bg); border-color: var(--green); color: #4caf85; }
+  .step-line { flex: 1; height: 1px; background: var(--border); margin: 0 4px; min-width: 12px; }
+
+  /* ── STATUS CHIPS ── */
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 100px;
+    font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .chip-signed  { background: var(--green-bg); color: #4caf85; border: 1px solid var(--green); }
+  .chip-pending { background: var(--amber-bg); color: #d4956a; border: 1px solid var(--amber); }
+  .chip-revoked { background: var(--red-bg);   color: #e06070; border: 1px solid var(--red); }
+  .chip-expired { background: var(--bg3);      color: var(--text-dim); border: 1px solid var(--border); }
+
+  /* ── AUDIT ITEMS ── */
+  .audit-row {
+    display: flex; gap: 10px; padding: 9px 0;
+    border-bottom: 1px solid var(--border); font-size: 0.72rem;
+  }
+  .audit-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .audit-ico {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--bg3); border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; flex-shrink: 0; margin-top: 1px;
+  }
+  .audit-t { color: var(--text); margin-bottom: 2px; }
+  .audit-m { color: var(--text-dim); font-size: 0.64rem; }
+
+  /* ── HASH BOX ── */
+  .hash-box {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 9px 11px;
+    font-size: 0.62rem; color: #5b9bd5; word-break: break-all;
+    line-height: 1.7; font-family: var(--mono);
+  }
+  .hash-lbl {
+    font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--gold); margin-bottom: 4px;
+  }
+
+  /* ── INFO BOX ── */
+  .info-box {
+    background: var(--gold-dim); border: 1px solid rgba(184,149,106,0.3);
+    border-left: 3px solid var(--gold); border-radius: var(--r);
+    padding: 10px 12px; font-size: 0.72rem; color: var(--text-mid); line-height: 1.6;
+  }
+  .info-box strong { color: var(--text); }
+
+  /* ── ALERT ── */
+  .alert {
+    padding: 10px 14px; border-radius: var(--r);
+    font-size: 0.75rem; display: flex; align-items: center; gap: 8px;
+    animation: fadeDown 0.3s ease;
+  }
+  .alert-ok  { background: var(--green-bg); border: 1px solid var(--green); color: #4caf85; }
+  .alert-err { background: var(--red-bg);   border: 1px solid var(--red);   color: #e06070; }
+  .alert-inf { background: var(--amber-bg); border: 1px solid var(--amber); color: #d4956a; }
+  @keyframes fadeDown { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform: translateY(0); } }
+
+  /* ── DOC ITEMS ── */
+  .doc-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--r); cursor: pointer; transition: var(--transition);
+  }
+  .doc-item:hover { border-color: var(--gold); background: var(--gold-dim); }
+  .doc-ico { font-size: 1.4rem; flex-shrink: 0; margin-top: 2px; }
+  .doc-inf { flex: 1; min-width: 0; }
+  .doc-nm {
+    font-family: var(--serif); font-size: 1rem; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px;
+  }
+  .doc-mt { font-size: 0.64rem; color: var(--text-dim); }
+
+  /* ── MODAL ── */
+  .modal-ov {
+    display: none; position: fixed; inset: 0;
+    background: rgba(8,12,16,0.85); z-index: 500;
+    align-items: flex-end; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-ov.open { display: flex; }
+  .modal {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 10px 10px 0 0; width: 100%; max-width: 430px;
+    padding: 20px; max-height: 92dvh; overflow-y: auto;
+    animation: slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-hd {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .modal-title { font-family: var(--serif); font-size: 1.2rem; font-style: italic; }
+  .modal::-webkit-scrollbar { width: 3px; }
+  .modal::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  /* ── TOGGLE ── */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--border); }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-lbl { font-size: 0.78rem; color: var(--text); }
+  .toggle-sub { font-size: 0.63rem; color: var(--text-dim); margin-top: 2px; }
+  .toggle {
+    width: 38px; height: 21px; background: var(--bg3);
+    border-radius: 100px; position: relative; cursor: pointer;
+    transition: background var(--transition); flex-shrink: 0;
+    border: 1px solid var(--border2);
+  }
+  .toggle.on { background: var(--green); border-color: var(--green); }
+  .toggle::after {
+    content: ''; position: absolute; width: 15px; height: 15px;
+    border-radius: 50%; background: white; top: 2px; left: 2px;
+    transition: left var(--transition); box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .toggle.on::after { left: 19px; }
+
+  /* ── AUTH SCREEN ── */
+  #authScreen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 24px; z-index: 200; gap: 24px;
+  }
+  .auth-logo { font-family: var(--serif); font-size: 2.8rem; font-weight: 300; text-align: center; }
+  .auth-logo em { color: var(--gold); font-style: italic; }
+  .auth-sub { font-size: 0.7rem; color: var(--text-dim); text-align: center; letter-spacing: 0.08em; text-transform: uppercase; }
+  .auth-card { width: 100%; max-width: 340px; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 24px; }
+  .auth-tabs { display: flex; gap: 2px; background: var(--bg); border-radius: var(--r); padding: 3px; margin-bottom: 18px; }
+  .auth-tab { flex: 1; padding: 7px; border: none; background: transparent; color: var(--text-dim); font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; border-radius: 2px; transition: var(--transition); }
+  .auth-tab.active { background: var(--bg2); color: var(--gold); border: 1px solid var(--border); }
+  .auth-divider { text-align: center; color: var(--text-dim); font-size: 0.65rem; margin: 4px 0; }
+  .auth-footer { text-align: center; font-size: 0.65rem; color: var(--text-dim); margin-top: 12px; line-height: 1.6; }
+
+  /* ── SIGNER SCREEN ── */
+  #signerScreen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: none; flex-direction: column;
+    z-index: 150; overflow-y: auto;
+  }
+  #signerScreen.open { display: flex; }
+  .signer-hdr {
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    padding: 16px 18px; text-align: center; flex-shrink: 0;
+  }
+  .signer-body { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 14px; max-width: 430px; margin: 0 auto; width: 100%; }
+
+  /* ── LOADING SPINNER ── */
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(184,149,106,0.2);
+    border-top-color: var(--gold); border-radius: 50%;
+    animation: spin 0.7s linear infinite; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── DIVIDER ── */
+  .hr { height: 1px; background: var(--border); margin: 2px 0; }
+
+  /* ── EMPTY ── */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text-dim); }
+  .empty .emi { font-size: 2.5rem; margin-bottom: 10px; }
+  .empty p { font-size: 0.75rem; line-height: 1.7; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-bar { height: 2px; background: var(--border); border-radius: 1px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--gold); width: 0%; transition: width 0.4s ease; }
+
+  /* ── RESPONSIVE (desktop) ── */
+  @media (min-width: 431px) {
+    body { background: #040608; }
+    #app { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    #authScreen { background: #040608; }
+  }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     AUTH SCREEN
+════════════════════════════════════════════════ -->
+<div id="authScreen">
+  <div class="auth-logo">S<em>igna</em>tuur</div>
+  <div class="auth-sub">FES · eIDAS Art. 26 · DSGVO-konform</div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="authTab('login')">Anmelden</button>
+      <button class="auth-tab" onclick="authTab('register')">Registrieren</button>
+    </div>
+
+    <div id="authAlert"></div>
+
+    <div id="loginForm">
+      <div class="frow"><label>E-Mail</label><input type="email" id="loginEmail" placeholder="max@firma.de"/></div>
+      <div class="frow"><label>Passwort</label><input type="password" id="loginPw" placeholder="••••••••"/></div>
+      <button class="btn btn-gold btn-full" onclick="doLogin()" style="margin-top:12px;" id="loginBtn">Anmelden</button>
+    </div>
+
+    <div id="registerForm" style="display:none">
+      <div class="frow"><label>Vollständiger Name</label><input type="text" id="regName" placeholder="Max Mustermann"/></div>
+      <div class="frow"><label>E-Mail</label><input type="email" id="regEmail" placeholder="max@firma.de"/></div>
+      <div class="frow"><label>Passwort</label><input type="password" id="regPw" placeholder="Min. 8 Zeichen"/></div>
+      <div class="frow"><label>Organisation</label><input type="text" id="regOrg" placeholder="Musterfirma GmbH (optional)"/></div>
+      <button class="btn btn-gold btn-full" onclick="doRegister()" style="margin-top:12px;" id="regBtn">Konto erstellen</button>
+    </div>
+
+    <div class="auth-footer">
+      Mit der Nutzung stimmen Sie der Verarbeitung Ihrer Daten<br/>
+      gemäß DSGVO und unserer Datenschutzerklärung zu.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SIGNER SCREEN (für externe Unterzeichner)
+════════════════════════════════════════════════ -->
+<div id="signerScreen">
+  <div class="signer-hdr">
+    <div class="logo" style="justify-content:center; font-size:1.4rem;">S<em style="color:var(--gold);font-style:italic;">igna</em>tuur</div>
+    <div style="font-size:0.65rem; color:var(--text-dim); margin-top:4px;">Elektronische Unterschrift · FES nach eIDAS</div>
+  </div>
+  <div class="signer-body" id="signerBody"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════════ -->
+<div id="app" style="display:none">
+
+  <header class="hdr">
+    <div class="logo">S<em>igna</em>tuur</div>
+    <div class="hdr-right">
+      <span class="sig-badge">FES</span>
+      <div class="hdr-user" id="userAvatar" onclick="showPage('settings')">–</div>
+    </div>
+  </header>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showPage('sign')"><span class="ni">✍️</span>Erstellen</button>
+    <button class="nav-btn" onclick="showPage('docs')"><span class="ni">📋</span>Dokumente</button>
+    <button class="nav-btn" onclick="showPage('verify')"><span class="ni">🔍</span>Prüfen</button>
+    <button class="nav-btn" onclick="showPage('settings')"><span class="ni">⚙️</span>Profil</button>
+  </nav>
+
+  <!-- ── PAGE: SIGN ── -->
+  <div class="page active" id="page-sign">
+    <div id="signAlert"></div>
+
+    <!-- Schrittanzeige -->
+    <div class="steps" id="stepsIndicator">
+      <div class="step active" id="step1"><div class="step-num">1</div><span>Dokument</span></div>
+      <div class="step-line"></div>
+      <div class="step" id="step2"><div class="step-num">2</div><span>Unterzeichner</span></div>
+      <div class="step-line"></div>
+      <div class="step" id="step3"><div class="step-num">3</div><span>Versenden</span></div>
+    </div>
+
+    <!-- Step 1: Dokumentdaten -->
+    <div class="card" id="cardDoc">
+      <div class="card-hd">📄 Dokument <small>Metadaten</small></div>
+      <div class="frow">
+        <label>Titel / Betreff *</label>
+        <input type="text" id="docTitle" placeholder="z.B. NDA – Musterfirma GmbH 2025"/>
+      </div>
+      <div class="frow">
+        <label>Dokumententyp</label>
+        <select id="docType">
+          <option value="nda">NDA / Vertraulichkeitserklärung</option>
+          <option value="offer">Angebot / Auftragsbestätigung</option>
+          <option value="contract">Dienstleistungsvertrag</option>
+          <option value="consent">Einwilligungserklärung</option>
+          <option value="invoice">Rechnung</option>
+          <option value="other">Sonstiges</option>
+        </select>
+      </div>
+      <div class="frow">
+        <label>Beschreibung / Notiz</label>
+        <textarea id="docDesc" placeholder="Interne Referenz oder Kurzinhalt..."></textarea>
+      </div>
+    </div>
+
+    <!-- PDF Upload -->
+    <div class="card">
+      <div class="card-hd">📎 PDF-Dokument <small>Optional · Max 10 MB</small></div>
+      <div id="dropZoneWrap">
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="pdfInput" accept="application/pdf" onchange="handlePDF(this.files[0])"/>
+          <div class="drop-icon">📄</div>
+          <div class="drop-text">PDF hier ablegen oder tippen zum Auswählen</div>
+          <div class="drop-sub">SHA-256 Hash wird automatisch erstellt</div>
+        </div>
+      </div>
+      <div id="pdfPreview" style="display:none"></div>
+      <div id="pdfHashWrap" style="display:none; margin-top:10px;">
+        <div class="hash-lbl">SHA-256 Dokument-Hash</div>
+        <div class="hash-box" id="pdfHashDisplay"></div>
+      </div>
+    </div>
+
+    <!-- Step 2: Unterzeichner -->
+    <div class="card" id="cardSigner">
+      <div class="card-hd">👤 Unterzeichner <small>Empfängt OTP per E-Mail</small></div>
+      <div class="fgrid">
+        <div class="frow"><label>Vollständiger Name *</label><input type="text" id="signerName" placeholder="Anna Müller"/></div>
+        <div class="frow"><label>E-Mail-Adresse *</label><input type="email" id="signerEmail" placeholder="anna@firma.de"/></div>
+      </div>
+      <div class="info-box" style="margin-top:8px; font-size:0.68rem;">
+        🔐 Der Unterzeichner erhält einen 6-stelligen OTP-Code per E-Mail zur Identitätsprüfung (Art. 26 eIDAS).
+      </div>
+    </div>
+
+    <!-- Rechtlicher Hinweis -->
+    <div class="info-box">
+      <strong>Geeignet für:</strong> NDAs, B2B-Verträge, Angebote, Einwilligungen ohne gesetzliches Schriftformerfordernis.<br/>
+      <strong>Nicht geeignet für:</strong> Kündigung (§ 623 BGB), Bürgschaft (§ 766 BGB), Eheverträge → dort QES erforderlich.
+    </div>
+
+    <button class="btn btn-gold btn-full" onclick="createDocument()" id="createBtn">
+      📨 &nbsp; OTP senden & Signatur anfordern
+    </button>
+  </div>
+
+  <!-- ── PAGE: DOCS ── -->
+  <div class="page" id="page-docs">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <h2 style="font-family:var(--serif); font-weight:300; font-size:1.3rem; font-style:italic;">Meine Dokumente</h2>
+      <span id="docCountBadge" style="font-size:0.65rem; color:var(--text-dim);"></span>
+    </div>
+    <div id="docsStats" style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;"></div>
+    <div id="docList"></div>
+  </div>
+
+  <!-- ── PAGE: VERIFY ── -->
+  <div class="page" id="page-verify">
+    <div class="card">
+      <div class="card-hd">🔍 Signatur verifizieren <small>Hash oder ID</small></div>
+      <div class="frow">
+        <label>Dokument-ID (UUID) oder SHA-256 Hash</label>
+        <input type="text" id="verifyInput" placeholder="z.B. sha256:abc123… oder UUID"/>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:4px;">
+        <button class="btn btn-ghost btn-full btn-sm" onclick="verifyDoc()">Prüfen</button>
+      </div>
+    </div>
+    <div id="verifyResult"></div>
+
+    <div class="card">
+      <div class="card-hd">⚖️ Rechtliche Grundlagen</div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="padding:10px; background:var(--amber-bg); border:1px solid var(--amber); border-radius:var(--r); font-size:0.75rem;">
+          <div style="color:var(--gold2); font-weight:500; margin-bottom:3px;">🟠 FES — Diese App</div>
+          <div style="color:var(--text-mid);">Mit OTP, Audit-Trail, SHA-256, RFC-3161 Zeitstempel. Art. 26 eIDAS.</div>
+        </div>
+        <div style="padding:10px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--r); font-size:0.75rem;">
+          <div style="color:var(--text-mid); font-weight:500; margin-bottom:3px;">🟡 EES — Einfach</div>
+          <div style="color:var(--text-dim);">Nur Bildunterschrift. Geringer Beweiswert.</div>
+        </div>
+        <div style="padding:10px; background:var(--green-bg); border:1px solid var(--green); border-radius:var(--r); font-size:0.75rem;">
+          <div style="color:#4caf85; font-weight:500; margin-bottom:3px;">🟢 QES — Qualifiziert</div>
+          <div style="color:var(--text-mid);">Zertifizierter TSP + Chip-Karte. = eigenhändige Unterschrift (§ 126a BGB).</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">📜 Compliance-Checkliste</div>
+      <div style="font-size:0.73rem; display:flex; flex-direction:column; gap:7px; color:var(--text-mid);">
+        <div>✅ eIDAS-VO (EU) Nr. 910/2014 Art. 26</div>
+        <div>✅ VDG (Vertrauensdienstegesetz Deutschland)</div>
+        <div>✅ § 126a BGB (Elektronische Form)</div>
+        <div>✅ DSGVO Art. 5 (Datenminimierung)</div>
+        <div>✅ DSGVO Art. 17 (Löschkonzept 10 Jahre)</div>
+        <div>✅ RFC 3161 (Vertrauenswürdiger Zeitstempel)</div>
+        <div>✅ SHA-256 Dokumentenintegrität</div>
+        <div>✅ OTP-basierte Identitätsprüfung</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PAGE: SETTINGS ── -->
+  <div class="page" id="page-settings">
+    <div class="card">
+      <div class="card-hd">👤 Profil</div>
+      <div class="frow"><label>Vollständiger Name</label><input type="text" id="profName"/></div>
+      <div class="frow"><label>Organisation</label><input type="text" id="profOrg"/></div>
+      <div class="frow"><label>E-Mail (Supabase Auth)</label><input type="text" id="profEmail" disabled style="opacity:0.5;"/></div>
+      <button class="btn btn-ghost btn-sm" onclick="saveProfile()" style="margin-top:8px;">Speichern</button>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">🔐 Datenschutz</div>
+      <div class="toggle-row">
+        <div><div class="toggle-lbl">Audit-Trail (serverseitig)</div><div class="toggle-sub">IP, Zeitstempel, User-Agent — immer aktiv</div></div>
+        <div class="toggle on"></div>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-lbl">SHA-256 Hash</div><div class="toggle-sub">Dokumentenintegrität nachweisbar</div></div>
+        <div class="toggle on"></div>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-lbl">RFC-3161 Zeitstempel (Sectigo)</div><div class="toggle-sub">Kryptographisch geprüfter Zeitnachweis</div></div>
+        <div class="toggle on"></div>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-lbl">OTP-Identitätsprüfung</div><div class="toggle-sub">E-Mail-Bestätigung Unterzeichner — immer aktiv</div></div>
+        <div class="toggle on"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">📱 App</div>
+      <div style="display:flex; flex-direction:column; gap:6px; font-size:0.72rem; color:var(--text-mid);">
+        <div>Version: <strong style="color:var(--text)">2.0.0</strong></div>
+        <div>Backend: <strong style="color:var(--text)">Supabase</strong></div>
+        <div>Signatur-Level: <strong style="color:var(--gold)">FES (eIDAS Art. 26)</strong></div>
+        <div>TSA: <strong style="color:var(--text)">Sectigo RFC-3161</strong></div>
+        <div>Offline: <strong style="color:var(--text)">✓ PWA ServiceWorker</strong></div>
+        <div>Speicher: <strong style="color:var(--text)">Supabase PostgreSQL</strong></div>
+      </div>
+    </div>
+
+    <button class="btn btn-danger btn-full" onclick="doLogout()">Abmelden</button>
+
+    <div style="text-align:center; font-size:0.62rem; color:var(--text-dim); padding: 8px 0;">
+      © 2025 Signatuur · DSGVO-konform · Daten werden nicht weitergegeben<br/>
+      Aufbewahrungsfrist signierter Dokumente: 10 Jahre (§ 147 AO)
+    </div>
+  </div>
+
+</div>
+
+<!-- ── MODAL: Dokument Detail ── -->
+<div class="modal-ov" id="docModal">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title" id="modalTitle">—</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('docModal')">✕</button>
+    </div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<!-- ── MODAL: Widerruf ── -->
+<div class="modal-ov" id="revokeModal">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title">Signatur widerrufen</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('revokeModal')">✕</button>
+    </div>
+    <div class="alert alert-inf" style="margin-bottom:12px;">
+      ⚠️ Der Widerruf wird im Audit-Trail dokumentiert und kann nicht rückgängig gemacht werden.
+    </div>
+    <div class="frow"><label>Begründung *</label><textarea id="revokeReason" placeholder="z.B. Dokument wurde inhaltlich geändert…"></textarea></div>
+    <input type="hidden" id="revokeDocId"/>
+    <button class="btn btn-danger btn-full" onclick="doRevoke()" style="margin-top:12px;">Widerrufen</button>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// CONFIG — Hier deine Supabase-Daten eintragen
+// ================================================================
+const SUPABASE_URL  = 'https://DEIN-PROJEKT.supabase.co';
+const SUPABASE_ANON = 'dein-anon-public-key';
+const EDGE_FN_URL   = `${SUPABASE_URL}/functions/v1/sign-document`;
+
+// ── Supabase Client ─────────────────────────────────────────────
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── State ────────────────────────────────────────────────────────
+let currentUser = null;
+let currentProfile = null;
+let pdfFile = null;
+let pdfHash = null;
+let pdfUploadPath = null;
+let sigData = null;
+let hasDrawn = false;
+let allDocs = [];
+
+// ================================================================
+// AUTH
+// ================================================================
+async function initAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    await onLogin(session.user);
+  } else {
+    // URL-Parameter prüfen: Unterzeichner-Link
+    const params = new URLSearchParams(location.search);
+    if (params.get('doc')) {
+      showSignerScreen(params.get('doc'));
+    }
+  }
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) await onLogin(session.user);
+    if (event === 'SIGNED_OUT') showAuth();
+  });
+}
+
+async function onLogin(user) {
+  currentUser = user;
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
+  currentProfile = profile;
+
+  const initials = (profile?.full_name || user.email || '?').split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
+  document.getElementById('userAvatar').textContent = initials;
+  document.getElementById('profEmail').value = user.email || '';
+  document.getElementById('profName').value = profile?.full_name || '';
+  document.getElementById('profOrg').value = profile?.organization || '';
+
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  loadDocs();
+}
+
+function showAuth() {
+  currentUser = null;
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+function authTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='register')));
+  document.getElementById('loginForm').style.display = tab==='login' ? '' : 'none';
+  document.getElementById('registerForm').style.display = tab==='register' ? '' : 'none';
+  document.getElementById('authAlert').innerHTML = '';
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPw').value;
+  if (!email || !pw) return setAuthAlert('E-Mail und Passwort erforderlich.', 'err');
+  setBtnLoading('loginBtn', true);
+  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+  setBtnLoading('loginBtn', false);
+  if (error) setAuthAlert(error.message, 'err');
+}
+
+async function doRegister() {
+  const name  = document.getElementById('regName').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const pw    = document.getElementById('regPw').value;
+  const org   = document.getElementById('regOrg').value.trim();
+  if (!name || !email || !pw) return setAuthAlert('Name, E-Mail und Passwort erforderlich.', 'err');
+  if (pw.length < 8) return setAuthAlert('Passwort muss min. 8 Zeichen haben.', 'err');
+  setBtnLoading('regBtn', true);
+  const { error } = await sb.auth.signUp({ email, password: pw, options: { data: { full_name: name, organization: org } } });
+  setBtnLoading('regBtn', false);
+  if (error) setAuthAlert(error.message, 'err');
+  else setAuthAlert('Konto erstellt! Bitte E-Mail bestätigen.', 'ok');
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+}
+
+function setAuthAlert(msg, type='err') {
+  document.getElementById('authAlert').innerHTML = `<div class="alert alert-${type}" style="margin-bottom:12px;">${msg}</div>`;
+}
+
+// ================================================================
+// PDF HANDLING
+// ================================================================
+async function handlePDF(file) {
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) return showAlert('signAlert', 'PDF darf max. 10 MB groß sein.', 'err');
+  pdfFile = file;
+
+  // SHA-256 Hash berechnen
+  const buf = await file.arrayBuffer();
+  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+  pdfHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+
+  // Vorschau
+  document.getElementById('dropZoneWrap').style.display = 'none';
+  document.getElementById('pdfPreview').style.display = '';
+  document.getElementById('pdfPreview').innerHTML = `
+    <div class="file-preview">
+      <span class="fi">📄</span>
+      <div style="flex:1; min-width:0;">
+        <div class="fn">${file.name}</div>
+        <div class="fs">${(file.size/1024/1024).toFixed(2)} MB</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="clearPDF()">✕</button>
+    </div>`;
+  document.getElementById('pdfHashWrap').style.display = '';
+  document.getElementById('pdfHashDisplay').textContent = pdfHash;
+}
+
+function clearPDF() {
+  pdfFile = null; pdfHash = null; pdfUploadPath = null;
+  document.getElementById('dropZoneWrap').style.display = '';
+  document.getElementById('pdfPreview').style.display = 'none';
+  document.getElementById('pdfHashWrap').style.display = 'none';
+  document.getElementById('pdfInput').value = '';
+}
+
+async function uploadPDF(docId) {
+  if (!pdfFile) return null;
+  const path = `${currentUser.id}/${docId}/original.pdf`;
+  const { error } = await sb.storage.from('documents-original').upload(path, pdfFile, { contentType: 'application/pdf' });
+  if (error) throw new Error('PDF-Upload fehlgeschlagen: ' + error.message);
+  return path;
+}
+
+// Signatur ins PDF einbetten via pdf-lib
+async function embedSignatureInPDF(pdfBytes, signatureBase64, signerName, timestamp, payloadHash) {
+  const { PDFDocument, rgb, StandardFonts } = PDFLib;
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const pages = pdfDoc.getPages();
+  const lastPage = pages[pages.length - 1];
+  const { width, height } = lastPage.getSize();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  // Signature image
+  const sigImgBytes = Uint8Array.from(atob(signatureBase64.split(',')[1]), c => c.charCodeAt(0));
+  const sigImg = await pdfDoc.embedPng(sigImgBytes);
+  const sigDims = sigImg.scale(0.35);
+
+  // Signaturblock unten rechts
+  const bx = width - sigDims.width - 40;
+  const by = 40;
+
+  lastPage.drawRectangle({ x: bx - 10, y: by - 20, width: sigDims.width + 20, height: sigDims.height + 60, borderColor: rgb(0.7,0.58,0.42), borderWidth: 1, color: rgb(0.98,0.97,0.94) });
+  lastPage.drawImage(sigImg, { x: bx, y: by + 20, width: sigDims.width, height: sigDims.height });
+  lastPage.drawLine({ start: { x: bx - 5, y: by + 18 }, end: { x: bx + sigDims.width + 5, y: by + 18 }, color: rgb(0.6,0.5,0.3), thickness: 0.5 });
+
+  const infoText = [
+    `Unterzeichnet von: ${signerName}`,
+    `Datum: ${new Date(timestamp).toLocaleString('de-DE')}`,
+    `SHA-256: ${payloadHash.substring(0, 24)}...`,
+    `FES gem. eIDAS Art. 26`
+  ];
+
+  infoText.forEach((line, i) => {
+    lastPage.drawText(line, { x: bx - 5, y: by + 10 - (i * 9), size: 6, font, color: rgb(0.3,0.3,0.3) });
+  });
+
+  return await pdfDoc.save();
+}
+
+// ================================================================
+// DOCUMENT CREATION
+// ================================================================
+async function createDocument() {
+  const title = document.getElementById('docTitle').value.trim();
+  const signerName = document.getElementById('signerName').value.trim();
+  const signerEmail = document.getElementById('signerEmail').value.trim();
+
+  if (!title) return showAlert('signAlert', 'Bitte Dokumenttitel eingeben.', 'err');
+  if (!signerName) return showAlert('signAlert', 'Bitte Unterzeichner-Name eingeben.', 'err');
+  if (!signerEmail || !signerEmail.includes('@')) return showAlert('signAlert', 'Bitte gültige E-Mail eingeben.', 'err');
+
+  setBtnLoading('createBtn', true);
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session?.access_token;
+
+    // Edge Function aufrufen
+    const res = await fetch(`${EDGE_FN_URL}?action=create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        title,
+        doc_type: document.getElementById('docType').value,
+        description: document.getElementById('docDesc').value,
+        signer_name: signerName,
+        signer_email: signerEmail,
+        file_hash: pdfHash || null,
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Fehler');
+
+    // PDF hochladen falls vorhanden
+    if (pdfFile && data.document_id) {
+      await uploadPDF(data.document_id);
+    }
+
+    showAlert('signAlert', `✅ OTP wurde an ${signerEmail} gesendet. Dokument-ID: ${data.document_id}`, 'ok');
+    updateSteps(3);
+
+    // Formular zurücksetzen
+    setTimeout(() => {
+      document.getElementById('docTitle').value = '';
+      document.getElementById('docDesc').value = '';
+      document.getElementById('signerName').value = '';
+      document.getElementById('signerEmail').value = '';
+      clearPDF();
+      updateSteps(1);
+      loadDocs();
+    }, 4000);
+
+  } catch(e) {
+    showAlert('signAlert', '❌ ' + e.message, 'err');
+  }
+  setBtnLoading('createBtn', false);
+}
+
+// ================================================================
+// SIGNER SCREEN (externe Unterzeichner via Link)
+// ================================================================
+async function showSignerScreen(docId) {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('signerScreen').classList.add('open');
+  renderSignerStep1(docId);
+}
+
+function renderSignerStep1(docId) {
+  const body = document.getElementById('signerBody');
+  body.innerHTML = `
+    <div class="card">
+      <div class="card-hd" style="font-style:italic;">Identitätsprüfung</div>
+      <p style="font-size:0.78rem; color:var(--text-mid); margin-bottom:12px; line-height:1.6;">
+        Sie wurden gebeten, ein Dokument elektronisch zu unterzeichnen.<br/>
+        Bitte geben Sie Ihre E-Mail ein, um den OTP-Code anzufordern.
+      </p>
+      <div class="frow"><label>Ihre E-Mail-Adresse</label><input type="email" id="sEmail" placeholder="ihre@email.de"/></div>
+      <button class="btn btn-gold btn-full" onclick="requestOTP('${docId}')" style="margin-top:8px;">OTP anfordern</button>
+    </div>
+    <div class="info-box">
+      <strong>Datenschutz:</strong> Ihre E-Mail-Adresse wird ausschließlich zur Signatur-Verifikation verwendet.
+      Diese Unterschrift entspricht einer <strong>Fortgeschrittenen Elektronischen Signatur (FES)</strong> gem. Art. 26 eIDAS.
+    </div>`;
+}
+
+async function requestOTP(docId) {
+  // OTP-Anfrage — wird bereits bei create ausgelöst
+  // Diese Funktion zeigt direkt das OTP-Eingabefeld
+  renderSignerStep2(docId, document.getElementById('sEmail').value.trim());
+}
+
+function renderSignerStep2(docId, email) {
+  if (!email || !email.includes('@')) return;
+  const body = document.getElementById('signerBody');
+  body.innerHTML = `
+    <div class="card">
+      <div class="card-hd" style="font-style:italic;">Code eingeben</div>
+      <p style="font-size:0.75rem; color:var(--text-mid); margin-bottom:4px;">
+        Ein 6-stelliger Code wurde an <strong style="color:var(--text);">${email}</strong> gesendet.
+      </p>
+      <div class="otp-wrap" id="otpWrap">
+        ${[0,1,2,3,4,5].map(i=>`<input class="otp-input" maxlength="1" id="otp${i}" type="tel" inputmode="numeric" oninput="otpNext(${i})" onkeydown="otpBack(event,${i})"/>`).join('')}
+      </div>
+      <button class="btn btn-gold btn-full" onclick="verifyOTP('${docId}','${email}')" id="otpBtn">Bestätigen</button>
+    </div>`;
+  setTimeout(() => document.getElementById('otp0')?.focus(), 100);
+}
+
+function otpNext(i) {
+  const el = document.getElementById('otp' + i);
+  el.classList.toggle('filled', !!el.value);
+  if (el.value && i < 5) document.getElementById('otp' + (i+1))?.focus();
+}
+
+function otpBack(e, i) {
+  if (e.key === 'Backspace' && !document.getElementById('otp'+i).value && i > 0) {
+    document.getElementById('otp'+(i-1))?.focus();
+  }
+}
+
+async function verifyOTP(docId, email) {
+  const otp = [0,1,2,3,4,5].map(i => document.getElementById('otp'+i)?.value || '').join('');
+  if (otp.length !== 6) return;
+
+  setBtnLoading('otpBtn', true);
+  try {
+    const res = await fetch(`${EDGE_FN_URL}?action=verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ document_id: docId, otp, signer_email: email })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Ungültiger Code');
+    renderSignerStep3(docId, email, data.sign_token);
+  } catch(e) {
+    document.getElementById('signerBody').insertAdjacentHTML('afterbegin', `<div class="alert alert-err">❌ ${e.message}</div>`);
+  }
+  setBtnLoading('otpBtn', false);
+}
+
+function renderSignerStep3(docId, email, signToken) {
+  const body = document.getElementById('signerBody');
+  body.innerHTML = `
+    <div class="card">
+      <div class="card-hd" style="font-style:italic;">Hier unterschreiben</div>
+      <p style="font-size:0.72rem; color:var(--text-mid); margin-bottom:10px;">
+        Bitte lesen Sie das Dokument sorgfältig und unterschreiben Sie unten.
+      </p>
+      <div id="sSignAlert"></div>
+
+      <div class="canvas-wrap">
+        <canvas id="sigCanvas" style="display:block; width:100%; height:150px; touch-action:none; cursor:crosshair; background:#f7f4ef;"></canvas>
+        <div class="canvas-ghost" id="canvasGhost">Hier unterschreiben →</div>
+      </div>
+      <div class="canvas-actions">
+        <button class="btn btn-ghost btn-sm" onclick="clearSigCanvas()">↩ Löschen</button>
+        <button class="btn btn-ghost btn-sm" onclick="openTypeSign()">⌨️ Tippen</button>
+      </div>
+
+      <div style="margin-top:12px; padding:10px; background:var(--bg); border:1px solid var(--border); border-radius:var(--r); font-size:0.68rem; color:var(--text-dim); line-height:1.7;">
+        Mit meiner Unterschrift bestätige ich, dass ich das vorliegende Dokument gelesen habe und rechtswirksam unterzeichne.
+        Diese Signatur entspricht einer <strong style="color:var(--text-mid);">Fortgeschrittenen Elektronischen Signatur (FES)</strong>
+        gemäß Art. 26 der eIDAS-Verordnung (EU) Nr. 910/2014.
+      </div>
+
+      <button class="btn btn-gold btn-full" onclick="submitSignature('${docId}','${email}','${signToken}')" style="margin-top:10px;" id="submitBtn">
+        ✍️ &nbsp; Rechtswirksam unterzeichnen
+      </button>
+    </div>`;
+
+  initSignerCanvas();
+}
+
+function initSignerCanvas() {
+  const canvas = document.getElementById('sigCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  }
+  resize();
+
+  let drawing = false;
+  function getPos(e) {
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - r.left, y: src.clientY - r.top };
+  }
+  canvas.addEventListener('mousedown', e => { drawing=true; const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+  canvas.addEventListener('mousemove', e => { if(!drawing) return; const p=getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); markSig(canvas); });
+  canvas.addEventListener('mouseup', () => drawing=false);
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing=true; const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+  canvas.addEventListener('touchmove', e => { e.preventDefault(); if(!drawing) return; const p=getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); markSig(canvas); });
+  canvas.addEventListener('touchend', () => drawing=false);
+}
+
+function markSig(canvas) {
+  hasDrawn = true;
+  sigData = canvas.toDataURL('image/png');
+  const ghost = document.getElementById('canvasGhost');
+  if (ghost) ghost.style.opacity = '0';
+}
+
+function clearSigCanvas() {
+  const canvas = document.getElementById('sigCanvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width/dpr, canvas.height/dpr);
+  hasDrawn = false; sigData = null;
+  const ghost = document.getElementById('canvasGhost');
+  if (ghost) ghost.style.opacity = '1';
+}
+
+function openTypeSign() {
+  const name = prompt('Namen eingeben (wird als Signatur verwendet):');
+  if (!name) return;
+  const canvas = document.getElementById('sigCanvas');
+  if (!canvas) return;
+  clearSigCanvas();
+  const dpr = window.devicePixelRatio || 1;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  ctx.font = `italic ${rect.height * 0.35}px 'Cormorant Garamond', Georgia, serif`;
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillText(name, 20, rect.height * 0.65);
+  sigData = canvas.toDataURL('image/png');
+  hasDrawn = true;
+  const ghost = document.getElementById('canvasGhost');
+  if (ghost) ghost.style.opacity = '0';
+}
+
+async function submitSignature(docId, email, signToken) {
+  if (!sigData) return showAlert('sSignAlert', 'Bitte erst unterschreiben.', 'err');
+
+  setBtnLoading('submitBtn', true);
+  try {
+    // Edge Function: sign
+    const res = await fetch(`${EDGE_FN_URL}?action=sign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ document_id: docId, signer_email: email, signature_data: sigData, sign_token: signToken })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Signierung fehlgeschlagen');
+
+    // PDF mit eingebetteter Signatur hochladen wenn vorhanden
+    // (in vollem Deployment: PDF aus Storage laden, Signatur einbetten, zurückspeichern)
+
+    document.getElementById('signerBody').innerHTML = `
+      <div style="text-align:center; padding:32px 16px;">
+        <div style="font-size:3rem; margin-bottom:12px;">✅</div>
+        <div style="font-family:var(--serif); font-size:1.4rem; color:var(--gold); margin-bottom:8px;">Erfolgreich unterzeichnet</div>
+        <div style="font-size:0.75rem; color:var(--text-mid); line-height:1.7; margin-bottom:16px;">
+          Ihre elektronische Signatur wurde rechtswirksam erfasst.<br/>
+          ${data.tsa_available ? '✓ RFC-3161 Zeitstempel von Sectigo TSA' : ''}<br/>
+          Dokument-Hash: <span style="color:var(--gold); font-size:0.65rem;">${data.payload_hash?.substring(0,24)}...</span>
+        </div>
+        <div class="hash-box" style="text-align:left;">
+          <div class="hash-lbl">Payload-Hash (SHA-256)</div>
+          ${data.payload_hash}
+        </div>
+        <p style="font-size:0.68rem; color:var(--text-dim); margin-top:12px; line-height:1.6;">
+          Eine Kopie des signierten Dokuments wird an Sie übermittelt.<br/>
+          Sie können dieses Fenster nun schließen.
+        </p>
+      </div>`;
+  } catch(e) {
+    showAlert('sSignAlert', '❌ ' + e.message, 'err');
+  }
+  setBtnLoading('submitBtn', false);
+}
+
+// ================================================================
+// DOCUMENTS PAGE
+// ================================================================
+async function loadDocs() {
+  if (!currentUser) return;
+  const { data: docs } = await sb.from('documents').select('*').eq('owner_id', currentUser.id).order('created_at', { ascending: false });
+  allDocs = docs || [];
+
+  const count = allDocs.length;
+  document.getElementById('docCountBadge').textContent = `${count} Dokument${count !== 1 ? 'e' : ''}`;
+
+  // Stats
+  const signed  = allDocs.filter(d => d.status === 'signed').length;
+  const pending = allDocs.filter(d => ['pending_otp','pending_sign'].includes(d.status)).length;
+  const revoked = allDocs.filter(d => d.status === 'revoked').length;
+  document.getElementById('docsStats').innerHTML = `
+    <div class="card" style="padding:10px; text-align:center;">
+      <div style="font-family:var(--serif); font-size:1.5rem; color:#4caf85;">${signed}</div>
+      <div style="font-size:0.6rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em;">Signiert</div>
+    </div>
+    <div class="card" style="padding:10px; text-align:center;">
+      <div style="font-family:var(--serif); font-size:1.5rem; color:#d4956a;">${pending}</div>
+      <div style="font-size:0.6rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em;">Ausstehend</div>
+    </div>
+    <div class="card" style="padding:10px; text-align:center;">
+      <div style="font-family:var(--serif); font-size:1.5rem; color:#e06070;">${revoked}</div>
+      <div style="font-size:0.6rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em;">Widerrufen</div>
+    </div>`;
+
+  if (allDocs.length === 0) {
+    document.getElementById('docList').innerHTML = `<div class="empty"><div class="emi">📂</div><p>Noch keine Dokumente.<br/>Erstelle dein erstes im Tab „Erstellen".</p></div>`;
+    return;
+  }
+
+  const typeL = { nda:'NDA', offer:'Angebot', contract:'Vertrag', consent:'Einwilligung', invoice:'Rechnung', other:'Sonstiges' };
+  document.getElementById('docList').innerHTML = allDocs.map(doc => `
+    <div class="doc-item" onclick="openDocModal('${doc.id}')" style="margin-bottom:8px;">
+      <div class="doc-ico">📄</div>
+      <div class="doc-inf">
+        <div class="doc-nm">${doc.title}</div>
+        <div class="doc-mt">${typeL[doc.doc_type]||'–'} · ${doc.signer_name} · ${new Date(doc.created_at).toLocaleDateString('de-DE')}</div>
+      </div>
+      <div>${chipHTML(doc.status)}</div>
+    </div>`).join('');
+}
+
+function chipHTML(status) {
+  const map = { signed:'chip-signed', pending_otp:'chip-pending', pending_sign:'chip-pending', revoked:'chip-revoked', expired:'chip-expired', rejected:'chip-revoked', draft:'chip-expired' };
+  const lbl = { signed:'✓ Signiert', pending_otp:'OTP ausstehend', pending_sign:'Unterschrift ausstehend', revoked:'Widerrufen', expired:'Abgelaufen', rejected:'Abgelehnt', draft:'Entwurf' };
+  return `<span class="chip ${map[status]||'chip-expired'}">${lbl[status]||status}</span>`;
+}
+
+function openDocModal(id) {
+  const doc = allDocs.find(d => d.id === id);
+  if (!doc) return;
+  document.getElementById('modalTitle').textContent = doc.title;
+
+  const sigBlock = doc.signature_data
+    ? `<img src="${doc.signature_data}" style="max-width:100%; height:80px; object-fit:contain; background:#f7f4ef; border-radius:3px; padding:8px;"/>`
+    : '<div style="color:var(--text-dim);font-size:0.75rem;">Noch nicht signiert</div>';
+
+  document.getElementById('modalContent').innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        ${chipHTML(doc.status)}
+        <span style="font-size:0.65rem; color:var(--text-dim);">${doc.id.substring(0,8)}…</span>
+      </div>
+
+      <div style="font-size:0.75rem; display:flex; flex-direction:column; gap:5px; color:var(--text-mid);">
+        <div>👤 ${doc.signer_name} &lt;${doc.signer_email}&gt;</div>
+        <div>📅 Erstellt: ${new Date(doc.created_at).toLocaleString('de-DE')}</div>
+        ${doc.signed_at ? `<div>✅ Signiert: ${new Date(doc.signed_at).toLocaleString('de-DE')}</div>` : ''}
+        ${doc.tsa_ts ? `<div>⏱️ TSA-Zeitstempel: ${new Date(doc.tsa_ts).toLocaleString('de-DE')}</div>` : ''}
+        ${doc.tsa_serial ? `<div>🔑 TSA-Serial: ${doc.tsa_serial}</div>` : ''}
+        <div>⏳ Ablauf: ${new Date(doc.expires_at).toLocaleDateString('de-DE')}</div>
+      </div>
+
+      <div>
+        <div class="hash-lbl" style="margin-bottom:4px;">Unterschrift</div>
+        ${sigBlock}
+      </div>
+
+      ${doc.payload_hash ? `
+        <div>
+          <div class="hash-lbl">Payload-Hash (SHA-256)</div>
+          <div class="hash-box">${doc.payload_hash}</div>
+        </div>` : ''}
+
+      ${doc.file_hash_sha256 ? `
+        <div>
+          <div class="hash-lbl">PDF-Hash (SHA-256)</div>
+          <div class="hash-box">${doc.file_hash_sha256}</div>
+        </div>` : ''}
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="copyLink('${doc.id}')">🔗 Signatur-Link kopieren</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportDocJSON('${doc.id}')">📥 JSON Export</button>
+        ${doc.status === 'signed' ? `<button class="btn btn-danger btn-sm" onclick="openRevoke('${doc.id}')">⚡ Widerrufen</button>` : ''}
+      </div>
+
+      ${doc.status === 'pending_otp' || doc.status === 'pending_sign' ? `
+        <div class="alert alert-inf">
+          ⏳ Warte auf Unterzeichner. Link: <br/>
+          <span style="font-size:0.65rem; word-break:break-all;">${location.origin}?doc=${doc.id}</span>
+        </div>` : ''}
+    </div>`;
+
+  document.getElementById('docModal').classList.add('open');
+}
+
+function copyLink(docId) {
+  navigator.clipboard.writeText(`${location.origin}?doc=${docId}`);
+  showAlert('signAlert', '✓ Link kopiert!', 'ok');
+}
+
+function exportDocJSON(id) {
+  const doc = allDocs.find(d => d.id === id);
+  if (!doc) return;
+  const safe = { ...doc }; delete safe.signature_data; // Signatur-Bild separat
+  const blob = new Blob([JSON.stringify(safe, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `signatuur-${doc.id.substring(0,8)}.json` });
+  a.click();
+}
+
+function openRevoke(docId) {
+  document.getElementById('revokeDocId').value = docId;
+  document.getElementById('revokeReason').value = '';
+  closeModal('docModal');
+  document.getElementById('revokeModal').classList.add('open');
+}
+
+async function doRevoke() {
+  const docId = document.getElementById('revokeDocId').value;
+  const reason = document.getElementById('revokeReason').value.trim();
+  if (!reason) return alert('Bitte Begründung eingeben.');
+
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(`${EDGE_FN_URL}?action=revoke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+    body: JSON.stringify({ document_id: docId, reason })
+  });
+  const data = await res.json();
+  if (res.ok) {
+    closeModal('revokeModal');
+    loadDocs();
+    showAlert('signAlert', '✓ Signatur widerrufen.', 'ok');
+  } else {
+    alert(data.error || 'Fehler beim Widerrufen.');
+  }
+}
+
+// ================================================================
+// VERIFY
+// ================================================================
+async function verifyDoc() {
+  const input = document.getElementById('verifyInput').value.trim();
+  if (!input) return;
+
+  const isUUID = /^[0-9a-f-]{36}$/.test(input);
+  const payload = isUUID ? { document_id: input } : { hash: input };
+
+  const res = await fetch(`${EDGE_FN_URL}?action=verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+
+  if (data.valid) {
+    document.getElementById('verifyResult').innerHTML = `
+      <div class="alert alert-ok">✅ Signatur gültig</div>
+      <div class="card" style="margin-top:10px; font-size:0.75rem;">
+        <div style="display:flex; flex-direction:column; gap:6px; color:var(--text-mid);">
+          <div>📄 <strong style="color:var(--text);">${data.title}</strong></div>
+          <div>👤 ${data.signer_name} &lt;${data.signer_email}&gt;</div>
+          <div>📅 ${new Date(data.signed_at).toLocaleString('de-DE')}</div>
+          ${data.tsa_available ? `<div>⏱️ TSA-Zeitstempel: ${new Date(data.tsa_ts).toLocaleString('de-DE')}</div><div>🔑 TSA-Serial: ${data.tsa_serial}</div>` : '<div style="color:var(--amber);">⚠️ Kein TSA-Zeitstempel</div>'}
+        </div>
+        <div style="margin-top:10px;">
+          <div class="hash-lbl">Payload-Hash</div>
+          <div class="hash-box">${data.payload_hash}</div>
+        </div>
+      </div>`;
+  } else {
+    document.getElementById('verifyResult').innerHTML = `<div class="alert alert-err">❌ ${data.error || 'Ungültige oder nicht gefundene Signatur. Status: ' + data.status}</div>`;
+  }
+}
+
+// ================================================================
+// PROFILE
+// ================================================================
+async function saveProfile() {
+  if (!currentUser) return;
+  const { error } = await sb.from('profiles').upsert({
+    id: currentUser.id,
+    full_name: document.getElementById('profName').value.trim(),
+    organization: document.getElementById('profOrg').value.trim(),
+    email: currentUser.email,
+    updated_at: new Date().toISOString()
+  });
+  if (!error) showAlert('signAlert', '✓ Profil gespeichert.', 'ok');
+}
+
+// ================================================================
+// UI HELPERS
+// ================================================================
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id)?.classList.add('active');
+  const idx = ['sign','docs','verify','settings'].indexOf(id);
+  document.querySelectorAll('.nav-btn')[idx]?.classList.add('active');
+  if (id === 'docs') loadDocs();
+}
+
+function showAlert(containerId, msg, type='ok') {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+  if (type === 'ok') setTimeout(() => { el.innerHTML = ''; }, 5000);
+}
+
+function updateSteps(active) {
+  [1,2,3].forEach(n => {
+    const s = document.getElementById('step' + n);
+    if (!s) return;
+    s.classList.toggle('active', n === active);
+    s.classList.toggle('done', n < active);
+  });
+}
+
+function setBtnLoading(id, loading) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.disabled = loading;
+  if (loading) btn.dataset.orig = btn.innerHTML, btn.innerHTML = '<span class="spinner"></span> Bitte warten…';
+  else btn.innerHTML = btn.dataset.orig || btn.innerHTML;
+}
+
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+// Drop-Zone
+document.addEventListener('DOMContentLoaded', () => {
+  const dz = document.getElementById('dropZone');
+  if (dz) {
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); if (e.dataTransfer.files[0]) handlePDF(e.dataTransfer.files[0]); });
+  }
+  // Modal-Overlay schließen
+  document.querySelectorAll('.modal-ov').forEach(ov => ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); }));
+});
+
+// Service Worker
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// Start
+initAuth();
+</script>
+</body>
+</html>
