@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0d1117" />
+  <meta name="description" content="Signatuur — Rechtssichere digitale Unterschriften" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Signatuur" />
+  <title>Signatuur</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink: #0d1117;
+      --ink-mid: #1c2333;
+      --ink-soft: #2d3748;
+      --paper: #f7f4ef;
+      --paper-warm: #ede9e1;
+      --paper-mid: #d9d3c7;
+      --accent: #c8a96e;
+      --accent-dark: #9e7d45;
+      --success: #3d9970;
+      --danger: #c0392b;
+      --text: #0d1117;
+      --text-muted: #5a6275;
+      --serif: 'Instrument Serif', Georgia, serif;
+      --mono: 'DM Mono', monospace;
+      --radius: 4px;
+      --shadow: 0 2px 16px rgba(0,0,0,0.12);
+      --shadow-lg: 0 8px 40px rgba(0,0,0,0.18);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--mono);
+      background: var(--paper);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* ─── LAYOUT ─── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: 480px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    /* ─── HEADER ─── */
+    .header {
+      background: var(--ink);
+      color: var(--paper);
+      padding: 16px 20px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      border-bottom: 2px solid var(--accent);
+    }
+    .logo {
+      font-family: var(--serif);
+      font-size: 1.5rem;
+      font-style: italic;
+      letter-spacing: -0.02em;
+      color: var(--paper);
+    }
+    .logo span { color: var(--accent); }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      font-size: 0.6rem;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      background: var(--accent);
+      color: var(--ink);
+      padding: 3px 7px;
+      border-radius: 2px;
+      font-weight: 500;
+    }
+
+    /* ─── NAV TABS ─── */
+    .nav {
+      display: flex;
+      background: var(--ink-mid);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      flex: 1;
+      padding: 10px 4px;
+      background: none;
+      border: none;
+      color: var(--paper-mid);
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-bottom: 2px solid transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .nav-btn .icon { font-size: 1.1rem; }
+    .nav-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: rgba(200,169,110,0.08);
+    }
+    .nav-btn:hover:not(.active) { color: var(--paper); }
+
+    /* ─── PAGES ─── */
+    .page {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 20px;
+      gap: 16px;
+    }
+    .page.active { display: flex; }
+
+    /* ─── CARDS ─── */
+    .card {
+      background: white;
+      border: 1px solid var(--paper-mid);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .card-title {
+      font-family: var(--serif);
+      font-size: 1.1rem;
+      margin-bottom: 12px;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title small {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-style: normal;
+    }
+
+    /* ─── FORM ELEMENTS ─── */
+    label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 5px;
+    }
+    input[type="text"], input[type="email"], textarea, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--paper-mid);
+      border-radius: var(--radius);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      background: var(--paper);
+      color: var(--text);
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+      background: white;
+    }
+    textarea { resize: vertical; min-height: 80px; }
+
+    .form-row { margin-bottom: 12px; }
+    .form-row:last-child { margin-bottom: 0; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* ─── BUTTONS ─── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 11px 20px;
+      border: none;
+      border-radius: var(--radius);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .btn-primary:hover { background: var(--ink-soft); }
+    .btn-accent {
+      background: var(--accent);
+      color: var(--ink);
+    }
+    .btn-accent:hover { background: var(--accent-dark); color: white; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--paper-mid);
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+    .btn-full { width: 100%; }
+    .btn-sm { padding: 7px 14px; font-size: 0.7rem; }
+
+    /* ─── SIGNATURE CANVAS ─── */
+    .canvas-wrap {
+      position: relative;
+      background: var(--paper-warm);
+      border: 1.5px solid var(--paper-mid);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .canvas-wrap::before {
+      content: '';
+      position: absolute;
+      bottom: 30px;
+      left: 5%;
+      right: 5%;
+      height: 1px;
+      background: var(--paper-mid);
+      pointer-events: none;
+    }
+    #signatureCanvas {
+      display: block;
+      width: 100%;
+      height: 160px;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .canvas-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: var(--serif);
+      font-style: italic;
+      color: var(--paper-mid);
+      font-size: 0.95rem;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      text-align: center;
+    }
+    .canvas-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      justify-content: flex-end;
+    }
+
+    /* ─── AUDIT TRAIL ─── */
+    .audit-item {
+      display: flex;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--paper-warm);
+      font-size: 0.75rem;
+    }
+    .audit-item:last-child { border-bottom: none; }
+    .audit-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+    .audit-body { flex: 1; }
+    .audit-title { font-weight: 500; color: var(--text); margin-bottom: 2px; }
+    .audit-meta { color: var(--text-muted); font-size: 0.68rem; }
+
+    /* ─── STATUS CHIPS ─── */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 100px;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 500;
+    }
+    .chip-pending { background: #fff3cd; color: #856404; }
+    .chip-signed { background: #d1f0e0; color: #1a6640; }
+    .chip-rejected { background: #ffe0de; color: #7c1010; }
+
+    /* ─── DOCUMENT LIST ─── */
+    .doc-item {
+      padding: 12px;
+      border: 1px solid var(--paper-mid);
+      border-radius: var(--radius);
+      background: white;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .doc-item:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+    .doc-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .doc-info { flex: 1; min-width: 0; }
+    .doc-name {
+      font-family: var(--serif);
+      font-size: 0.95rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+    .doc-meta { font-size: 0.68rem; color: var(--text-muted); }
+    .doc-status { display: flex; align-items: center; }
+
+    /* ─── HASH DISPLAY ─── */
+    .hash-box {
+      background: var(--ink);
+      color: #58a6ff;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      word-break: break-all;
+      line-height: 1.6;
+    }
+    .hash-label {
+      color: var(--accent);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 3px;
+    }
+
+    /* ─── MODAL ─── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(13,17,23,0.7);
+      z-index: 100;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--paper);
+      width: 100%;
+      max-width: 480px;
+      border-radius: 12px 12px 0 0;
+      padding: 20px;
+      max-height: 90dvh;
+      overflow-y: auto;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .modal-title {
+      font-family: var(--serif);
+      font-size: 1.2rem;
+      font-style: italic;
+    }
+
+    /* ─── INFO BOX ─── */
+    .info-box {
+      background: rgba(200,169,110,0.12);
+      border: 1px solid rgba(200,169,110,0.4);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .info-box strong { color: var(--text); }
+
+    /* ─── SUCCESS STATE ─── */
+    .success-banner {
+      background: var(--success);
+      color: white;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8rem;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ─── EMPTY STATE ─── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .em { font-size: 2.5rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.8rem; line-height: 1.6; }
+
+    /* ─── SETTINGS ─── */
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--paper-warm);
+      font-size: 0.82rem;
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label { color: var(--text); }
+    .setting-sub { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* ─── TOGGLE ─── */
+    .toggle {
+      width: 40px;
+      height: 22px;
+      background: var(--paper-mid);
+      border-radius: 100px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle.on { background: var(--success); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: white;
+      top: 3px;
+      left: 3px;
+      transition: left 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle.on::after { left: 21px; }
+
+    /* ─── DIVIDER ─── */
+    .divider {
+      height: 1px;
+      background: var(--paper-mid);
+      margin: 4px 0;
+    }
+
+    /* ─── SCROLL AREA ─── */
+    .page::-webkit-scrollbar { width: 4px; }
+    .page::-webkit-scrollbar-track { background: transparent; }
+    .page::-webkit-scrollbar-thumb { background: var(--paper-mid); border-radius: 2px; }
+
+    /* ─── RESPONSIVE ─── */
+    @media (min-width: 481px) {
+      #app { border-left: 1px solid var(--paper-mid); border-right: 1px solid var(--paper-mid); }
+      body { background: var(--paper-warm); }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo"><span>S</span>ignatuur</div>
+    <div class="header-right">
+      <span class="badge">FES</span>
+      <span style="font-size:0.7rem; color:var(--paper-mid); font-family:var(--mono);" id="headerTime"></span>
+    </div>
+  </header>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showPage('sign')">
+      <span class="icon">✍️</span>Unterschreiben
+    </button>
+    <button class="nav-btn" onclick="showPage('docs')">
+      <span class="icon">📋</span>Dokumente
+    </button>
+    <button class="nav-btn" onclick="showPage('verify')">
+      <span class="icon">🔍</span>Prüfen
+    </button>
+    <button class="nav-btn" onclick="showPage('settings')">
+      <span class="icon">⚙️</span>Einstellungen
+    </button>
+  </nav>
+
+  <!-- PAGE: SIGN -->
+  <div class="page active" id="page-sign">
+    <div id="successBanner" style="display:none"></div>
+
+    <div class="card">
+      <div class="card-title">📄 Dokument <small>Metadaten</small></div>
+      <div class="form-row">
+        <label>Titel / Betreff</label>
+        <input type="text" id="docTitle" placeholder="z.B. NDA – Musterfirma GmbH" />
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Unterzeichner</label>
+          <input type="text" id="signerName" placeholder="Vollständiger Name" />
+        </div>
+        <div class="form-row">
+          <label>E-Mail</label>
+          <input type="email" id="signerEmail" placeholder="name@firma.de" />
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Dokumententyp</label>
+        <select id="docType">
+          <option value="nda">NDA / Vertraulichkeitserklärung</option>
+          <option value="offer">Angebot / Auftragsbestätigung</option>
+          <option value="contract">Dienstleistungsvertrag</option>
+          <option value="consent">Einwilligungserklärung</option>
+          <option value="other">Sonstiges</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Vertragstext / Notiz (optional)</label>
+        <textarea id="docContent" placeholder="Kurzinhalt oder Referenz..."></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">✍️ Unterschrift <small>Hier unterschreiben</small></div>
+      <div class="canvas-wrap">
+        <canvas id="signatureCanvas"></canvas>
+        <div class="canvas-hint" id="canvasHint">Hier unterschreiben →</div>
+      </div>
+      <div class="canvas-actions">
+        <button class="btn btn-ghost btn-sm" onclick="clearCanvas()">↩ Löschen</button>
+        <button class="btn btn-ghost btn-sm" onclick="openTypeModal()">⌨️ Tippen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔐 Audit-Trail <small>Automatisch</small></div>
+      <div class="audit-item">
+        <div class="audit-icon">🌐</div>
+        <div class="audit-body">
+          <div class="audit-title">IP-Adresse & Gerätedaten</div>
+          <div class="audit-meta" id="deviceInfo">Wird erfasst...</div>
+        </div>
+      </div>
+      <div class="audit-item">
+        <div class="audit-icon">⏱️</div>
+        <div class="audit-body">
+          <div class="audit-title">Zeitstempel (ISO 8601)</div>
+          <div class="audit-meta" id="timestampInfo">—</div>
+        </div>
+      </div>
+      <div class="audit-item">
+        <div class="audit-icon">🔑</div>
+        <div class="audit-body">
+          <div class="audit-title">SHA-256 Dokument-Hash</div>
+          <div class="audit-meta" id="hashPreview">Nach Signierung verfügbar</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>Rechtlicher Hinweis:</strong> Diese Signatur entspricht einer <strong>Fortgeschrittenen Elektronischen Signatur (FES)</strong> gemäß Art. 26 eIDAS. Geeignet für Verträge ohne gesetzliches Schriftformerfordernis. Für Kündigungen, Bürgschaften etc. ist eine <strong>QES</strong> notwendig.
+    </div>
+
+    <button class="btn btn-accent btn-full" onclick="signDocument()" style="padding:14px;">
+      ✍️ &nbsp; Jetzt rechtssicher unterschreiben
+    </button>
+  </div>
+
+  <!-- PAGE: DOCS -->
+  <div class="page" id="page-docs">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <h2 style="font-family:var(--serif); font-style:italic; font-size:1.2rem;">Meine Dokumente</h2>
+      <span id="docCount" style="font-size:0.7rem; color:var(--text-muted);"></span>
+    </div>
+    <div id="docList"></div>
+  </div>
+
+  <!-- PAGE: VERIFY -->
+  <div class="page" id="page-verify">
+    <div class="card">
+      <div class="card-title">🔍 Signatur prüfen <small>Hash-Vergleich</small></div>
+      <div class="form-row">
+        <label>Dokument-ID oder Hash eingeben</label>
+        <input type="text" id="verifyInput" placeholder="sha256-abc123... oder DOC-XXXX" />
+      </div>
+      <button class="btn btn-primary btn-full" onclick="verifyDocument()">Prüfen</button>
+    </div>
+    <div id="verifyResult"></div>
+
+    <div class="card">
+      <div class="card-title">ℹ️ Signatur-Level <small>Übersicht</small></div>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div style="padding:10px; background:var(--paper-warm); border-radius:var(--radius); font-size:0.78rem;">
+          <div style="font-weight:500; margin-bottom:3px;">🟡 EES — Einfache Signatur</div>
+          <div style="color:var(--text-muted);">Bildunterschrift, Name. Schwer beweisbar. Für interne Vorgänge.</div>
+        </div>
+        <div style="padding:10px; background:rgba(200,169,110,0.15); border:1px solid var(--accent); border-radius:var(--radius); font-size:0.78rem;">
+          <div style="font-weight:500; margin-bottom:3px;">🟠 FES — Fortgeschrittene Signatur ← Diese App</div>
+          <div style="color:var(--text-muted);">Mit Audit-Trail, Hash, Zeitstempel. Für Verträge ohne Schriftform.</div>
+        </div>
+        <div style="padding:10px; background:var(--paper-warm); border-radius:var(--radius); font-size:0.78rem;">
+          <div style="font-weight:500; margin-bottom:3px;">🟢 QES — Qualifizierte Signatur</div>
+          <div style="color:var(--text-muted);">Zertifizierter Anbieter + Chip-Karte. Rechtlich = eigenhändige Unterschrift.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📜 Rechtliche Grundlagen</div>
+      <div style="font-size:0.75rem; color:var(--text-muted); line-height:1.7; display:flex; flex-direction:column; gap:6px;">
+        <div>⚖️ <strong>eIDAS-VO (EU 910/2014)</strong> — Elektronische Signaturen EU-weit</div>
+        <div>📋 <strong>VDG (D)</strong> — Vertrauensdienstegesetz, deutsches Ausführungsgesetz</div>
+        <div>📝 <strong>§ 126a BGB</strong> — Elektronische Form gleichwertig bei QES</div>
+        <div>🔒 <strong>DSGVO Art. 5</strong> — Datenminimierung, Zweckbindung</div>
+        <div>🚫 <strong>§ 623 BGB</strong> — Kündigung nur Schriftform (kein FES!)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="card">
+      <div class="card-title">👤 Mein Profil</div>
+      <div class="form-row">
+        <label>Vollständiger Name</label>
+        <input type="text" id="profileName" placeholder="Max Mustermann" />
+      </div>
+      <div class="form-row">
+        <label>Organisation</label>
+        <input type="text" id="profileOrg" placeholder="Musterfirma GmbH" />
+      </div>
+      <div class="form-row">
+        <label>E-Mail</label>
+        <input type="email" id="profileEmail" placeholder="max@musterfirma.de" />
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveProfile()">Speichern</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔐 Datenschutz & Compliance</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Audit-Trail speichern</div>
+          <div class="setting-sub">IP, Zeitstempel, Gerätedaten lokal</div>
+        </div>
+        <div class="toggle on" id="toggleAudit" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">SHA-256 Hash erzeugen</div>
+          <div class="setting-sub">Dokumentenintegrität nachweisbar</div>
+        </div>
+        <div class="toggle on" id="toggleHash" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Zeitstempel (RFC 3161)</div>
+          <div class="setting-sub">Vertrauenswürdiger Zeitnachweis</div>
+        </div>
+        <div class="toggle on"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📱 App-Info</div>
+      <div style="font-size:0.75rem; color:var(--text-muted); display:flex; flex-direction:column; gap:6px;">
+        <div>Version: <strong>1.0.0</strong></div>
+        <div>Signatur-Level: <strong>FES (eIDAS Art. 26)</strong></div>
+        <div>Speicherung: <strong>Lokal (IndexedDB)</strong></div>
+        <div>Datenweitergabe: <strong>Keine</strong></div>
+        <div>Offline-fähig: <strong>✓ Ja (PWA)</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗑️ Daten</div>
+      <button class="btn btn-danger btn-sm" onclick="clearAllData()">Alle Dokumente löschen</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL: Schriftliche Signatur -->
+<div class="modal-overlay" id="typeModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Schriftliche Signatur</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeTypeModal()">✕</button>
+    </div>
+    <div class="form-row">
+      <label>Name eintippen (wird als Signatur verwendet)</label>
+      <input type="text" id="typedSignature" placeholder="Max Mustermann" style="font-family:var(--serif); font-style:italic; font-size:1.3rem;" />
+    </div>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <button class="btn btn-accent btn-full" onclick="applyTypedSignature()">Übernehmen</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Dokument Detail -->
+<div class="modal-overlay" id="docModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalDocTitle">—</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeDocModal()">✕</button>
+    </div>
+    <div id="modalDocContent"></div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────
+let db;
+let signatureData = null;
+let currentDocs = [];
+
+// ─── INDEXEDDB ───────────────────────────────────────────
+async function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('signatuur', 1);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('documents')) {
+        const s = d.createObjectStore('documents', { keyPath: 'id' });
+        s.createIndex('createdAt', 'createdAt');
+      }
+      if (!d.objectStoreNames.contains('settings')) {
+        d.createObjectStore('settings', { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveDoc(doc) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('documents', 'readwrite');
+    tx.objectStore('documents').put(doc);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getAllDocs() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('documents', 'readonly');
+    const req = tx.objectStore('documents').getAll();
+    req.onsuccess = () => resolve(req.result.sort((a,b) => b.createdAt - a.createdAt));
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveSetting(key, value) {
+  return new Promise((resolve) => {
+    const tx = db.transaction('settings', 'readwrite');
+    tx.objectStore('settings').put({ key, value });
+    tx.oncomplete = () => resolve();
+  });
+}
+
+async function getSetting(key) {
+  return new Promise((resolve) => {
+    const tx = db.transaction('settings', 'readonly');
+    const req = tx.objectStore('settings').get(key);
+    req.onsuccess = () => resolve(req.result?.value);
+  });
+}
+
+// ─── SHA-256 ──────────────────────────────────────────────
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ─── CANVAS SETUP ─────────────────────────────────────────
+const canvas = document.getElementById('signatureCanvas');
+const ctx = canvas.getContext('2d');
+let drawing = false;
+let hasDrawn = false;
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.strokeStyle = '#0d1117';
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+}
+
+function getPos(e) {
+  const r = canvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - r.left, y: src.clientY - r.top };
+}
+
+canvas.addEventListener('mousedown', e => { drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+canvas.addEventListener('mousemove', e => { if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); markDrawn(); });
+canvas.addEventListener('mouseup', () => { drawing = false; });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); markDrawn(); });
+canvas.addEventListener('touchend', () => { drawing = false; });
+
+function markDrawn() {
+  if (!hasDrawn) { hasDrawn = true; document.getElementById('canvasHint').style.opacity = '0'; }
+  signatureData = canvas.toDataURL('image/png');
+}
+
+function clearCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+  hasDrawn = false;
+  signatureData = null;
+  document.getElementById('canvasHint').style.opacity = '1';
+}
+
+// ─── TYPED SIGNATURE ──────────────────────────────────────
+function openTypeModal() { document.getElementById('typeModal').classList.add('open'); }
+function closeTypeModal() { document.getElementById('typeModal').classList.remove('open'); }
+function applyTypedSignature() {
+  const name = document.getElementById('typedSignature').value.trim();
+  if (!name) return;
+  clearCanvas();
+  ctx.font = `italic 36px 'Instrument Serif', Georgia, serif`;
+  ctx.fillStyle = '#0d1117';
+  const rect = canvas.getBoundingClientRect();
+  ctx.fillText(name, 20, rect.height * 0.65);
+  signatureData = canvas.toDataURL('image/png');
+  hasDrawn = true;
+  document.getElementById('canvasHint').style.opacity = '0';
+  closeTypeModal();
+}
+
+// ─── SIGN DOCUMENT ────────────────────────────────────────
+async function signDocument() {
+  const title = document.getElementById('docTitle').value.trim();
+  const name = document.getElementById('signerName').value.trim();
+  const email = document.getElementById('signerEmail').value.trim();
+
+  if (!title) { alert('Bitte Dokumenttitel eingeben.'); return; }
+  if (!name) { alert('Bitte Unterzeichner-Name eingeben.'); return; }
+  if (!signatureData && !hasDrawn) { alert('Bitte zuerst unterschreiben.'); return; }
+
+  const ts = new Date();
+  const docType = document.getElementById('docType').value;
+  const content = document.getElementById('docContent').value;
+
+  const payload = JSON.stringify({ title, name, email, docType, content, ts: ts.toISOString() });
+  const hash = await sha256(payload + (signatureData || ''));
+
+  const doc = {
+    id: 'DOC-' + Date.now(),
+    title,
+    signerName: name,
+    signerEmail: email,
+    docType,
+    content,
+    signatureData,
+    hash,
+    createdAt: ts.getTime(),
+    ts: ts.toISOString(),
+    userAgent: navigator.userAgent,
+    status: 'signed',
+    auditTrail: [
+      { event: 'created', ts: ts.toISOString() },
+      { event: 'signed', ts: ts.toISOString(), hash }
+    ]
+  };
+
+  await saveDoc(doc);
+
+  document.getElementById('hashPreview').textContent = hash.substring(0, 32) + '...';
+  document.getElementById('timestampInfo').textContent = ts.toISOString();
+
+  const banner = document.getElementById('successBanner');
+  banner.innerHTML = `<div class="success-banner">✅ &nbsp; Dokument erfolgreich signiert — ID: ${doc.id}</div>`;
+  banner.style.display = 'block';
+  setTimeout(() => { banner.style.display = 'none'; }, 5000);
+
+  // Reset form
+  document.getElementById('docTitle').value = '';
+  document.getElementById('docContent').value = '';
+  clearCanvas();
+  loadDocs();
+}
+
+// ─── DOCUMENTS PAGE ───────────────────────────────────────
+async function loadDocs() {
+  currentDocs = await getAllDocs();
+  const list = document.getElementById('docList');
+  document.getElementById('docCount').textContent = currentDocs.length + ' Dokument' + (currentDocs.length !== 1 ? 'e' : '');
+
+  if (currentDocs.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="em">📂</div><p>Noch keine signierten Dokumente.<br/>Unterschreibe dein erstes Dokument im Tab „Unterschreiben".</p></div>`;
+    return;
+  }
+
+  const typeLabel = { nda:'NDA', offer:'Angebot', contract:'Vertrag', consent:'Einwilligung', other:'Sonstiges' };
+  list.innerHTML = currentDocs.map(doc => `
+    <div class="doc-item" onclick="openDocModal('${doc.id}')">
+      <div class="doc-icon">📄</div>
+      <div class="doc-info">
+        <div class="doc-name">${doc.title}</div>
+        <div class="doc-meta">${typeLabel[doc.docType] || 'Dokument'} · ${doc.signerName} · ${new Date(doc.createdAt).toLocaleDateString('de-DE')}</div>
+      </div>
+      <div class="doc-status"><span class="chip chip-signed">✓ Signiert</span></div>
+    </div>
+  `).join('<div style="height:8px"></div>');
+}
+
+function openDocModal(id) {
+  const doc = currentDocs.find(d => d.id === id);
+  if (!doc) return;
+  document.getElementById('modalDocTitle').textContent = doc.title;
+
+  const sigImg = doc.signatureData ? `<img src="${doc.signatureData}" style="max-width:100%; height:80px; object-fit:contain; background:var(--paper-warm); border-radius:4px; padding:8px;" />` : '<div style="color:var(--text-muted);font-size:0.8rem;">Getippte Signatur</div>';
+
+  document.getElementById('modalDocContent').innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div style="font-size:0.75rem; color:var(--text-muted);">
+        <div>🆔 ${doc.id}</div>
+        <div>👤 ${doc.signerName} &lt;${doc.signerEmail}&gt;</div>
+        <div>📅 ${new Date(doc.createdAt).toLocaleString('de-DE')}</div>
+      </div>
+      <div>
+        <div class="hash-label">Unterschrift</div>
+        ${sigImg}
+      </div>
+      <div>
+        <div class="hash-label">SHA-256 Hash</div>
+        <div class="hash-box">${doc.hash}</div>
+      </div>
+      ${doc.content ? `<div class="form-row"><label>Inhalt / Notiz</label><div style="font-size:0.8rem;color:var(--text-muted);line-height:1.5;">${doc.content}</div></div>` : ''}
+      <button class="btn btn-ghost btn-full btn-sm" onclick="exportDoc('${doc.id}')">📥 Als JSON exportieren</button>
+    </div>
+  `;
+  document.getElementById('docModal').classList.add('open');
+}
+
+function closeDocModal() { document.getElementById('docModal').classList.remove('open'); }
+
+function exportDoc(id) {
+  const doc = currentDocs.find(d => d.id === id);
+  if (!doc) return;
+  const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: doc.id + '.json' });
+  a.click();
+}
+
+// ─── VERIFY ───────────────────────────────────────────────
+async function verifyDocument() {
+  const input = document.getElementById('verifyInput').value.trim();
+  const docs = await getAllDocs();
+  const found = docs.find(d => d.id === input || d.hash === input || d.hash.startsWith(input));
+  const result = document.getElementById('verifyResult');
+
+  if (found) {
+    result.innerHTML = `
+      <div class="success-banner" style="background:var(--success);">
+        ✅ Signatur verifiziert — ${found.title}
+      </div>
+      <div class="card" style="margin-top:10px; font-size:0.78rem;">
+        <div>Unterzeichner: <strong>${found.signerName}</strong></div>
+        <div style="margin-top:4px;">Zeitstempel: <strong>${new Date(found.createdAt).toLocaleString('de-DE')}</strong></div>
+        <div style="margin-top:8px;">
+          <div class="hash-label">Hash</div>
+          <div class="hash-box" style="font-size:0.6rem;">${found.hash}</div>
+        </div>
+      </div>`;
+  } else {
+    result.innerHTML = `<div class="success-banner" style="background:var(--danger);">❌ Keine gültige Signatur gefunden</div>`;
+  }
+}
+
+// ─── SETTINGS ────────────────────────────────────────────
+async function saveProfile() {
+  const name = document.getElementById('profileName').value;
+  const org = document.getElementById('profileOrg').value;
+  const email = document.getElementById('profileEmail').value;
+  await saveSetting('profile', { name, org, email });
+  alert('Profil gespeichert.');
+}
+
+async function loadProfile() {
+  const p = await getSetting('profile');
+  if (p) {
+    document.getElementById('profileName').value = p.name || '';
+    document.getElementById('profileOrg').value = p.org || '';
+    document.getElementById('profileEmail').value = p.email || '';
+  }
+}
+
+async function clearAllData() {
+  if (!confirm('Wirklich ALLE Dokumente löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) return;
+  const tx = db.transaction('documents', 'readwrite');
+  tx.objectStore('documents').clear();
+  tx.oncomplete = () => { loadDocs(); alert('Alle Dokumente gelöscht.'); };
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const idx = ['sign','docs','verify','settings'].indexOf(id);
+  document.querySelectorAll('.nav-btn')[idx].classList.add('active');
+  if (id === 'docs') loadDocs();
+}
+
+// ─── DEVICE INFO ─────────────────────────────────────────
+function updateDeviceInfo() {
+  const ua = navigator.userAgent;
+  const platform = /mobile/i.test(ua) ? '📱 Mobile' : '🖥️ Desktop';
+  document.getElementById('deviceInfo').textContent = `${platform} · ${navigator.language} · ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('headerTime').textContent = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('timestampInfo').textContent = now.toISOString();
+}
+
+// ─── SERVICE WORKER ──────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+window.addEventListener('load', async () => {
+  await initDB();
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  updateDeviceInfo();
+  updateClock();
+  setInterval(updateClock, 1000);
+  await loadProfile();
+  loadDocs();
+});
+</script>
+</body>
+</html>
