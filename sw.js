@@ -1,7 +1,7 @@
-// Signatuur Service Worker v2.0
+// Clavis-Signatuur Service Worker v2.0
 // Cache-First für Assets, Network-First für API-Calls
 
-const CACHE_NAME    = 'signatuur-v2';
+const CACHE_NAME    = 'clavis-signatuur-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -132,7 +132,7 @@ self.addEventListener('push', event => {
   if (!event.data) return;
   const data = event.data.json();
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Signatuur', {
+    self.registration.showNotification(data.title || 'Clavis-Signatuur', {
       body: data.body,
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-72.png',

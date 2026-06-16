@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
-  <meta name="apple-mobile-web-app-title" content="Signatuur"/>
-  <title>Signatuur</title>
+  <meta name="apple-mobile-web-app-title" content="Clavis-Signatuur"/>
+  <title>Clavis-Signatuur</title>
   <link rel="manifest" href="manifest.json"/>
   <link rel="icon" type="image/x-icon" href="favicon.ico"/>
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png"/>
@@ -257,7 +257,7 @@
 
 <!-- AUTH SCREEN -->
 <div id="authScreen">
-  <div class="auth-logo">S<em>igna</em>tuur</div>
+  <div class="auth-logo">Clavis-S<em>igna</em>tuur</div>
   <div class="auth-sub">FES · eIDAS Art. 26 · DSGVO-konform</div>
   <div class="auth-card">
     <div class="auth-tabs">
@@ -284,7 +284,7 @@
 <!-- SIGNER SCREEN -->
 <div id="signerScreen">
   <div class="signer-hdr">
-    <div class="logo" style="justify-content:center; font-size:1.4rem;">S<em style="color:var(--gold);font-style:italic;">igna</em>tuur</div>
+    <div class="logo" style="justify-content:center; font-size:1.4rem;">Clavis-S<em style="color:var(--gold);font-style:italic;">igna</em>tuur</div>
     <div style="font-size:0.65rem; color:var(--text-dim); margin-top:4px;">Elektronische Unterschrift · FES nach eIDAS</div>
   </div>
   <div class="signer-body" id="signerBody"></div>
@@ -301,7 +301,7 @@
   </div>
 
   <header class="hdr">
-    <div class="logo">S<em>igna</em>tuur</div>
+    <div class="logo">Clavis-S<em>igna</em>tuur</div>
     <div class="hdr-right">
       <span class="sig-badge">FES</span>
       <div class="hdr-user" id="userAvatar" onclick="showPage('settings')">–</div>
@@ -454,7 +454,7 @@
         <div>Kontext: <strong id="erpContextDisplay" style="color:var(--text-dim);">—</strong></div>
       </div>
       <div class="info-box" style="margin-top:10px; font-size:0.68rem;">
-        Signatuur erkennt automatisch wenn es in einem ERP-iFrame läuft und aktiviert die postMessage-Bridge.
+        Clavis-Signatuur erkennt automatisch wenn es in einem ERP-iFrame läuft und aktiviert die postMessage-Bridge.
         Befehle: <code style="color:var(--gold);">SIGNATUUR_PREFILL</code>, <code style="color:var(--gold);">SIGNATUUR_OPEN_DOC</code>.<br/>
         Events: <code style="color:var(--gold);">SIGNATUUR_CREATED</code>, <code style="color:var(--gold);">SIGNATUUR_SIGNED</code>, <code style="color:var(--gold);">SIGNATUUR_REVOKED</code>.
       </div>
@@ -479,7 +479,7 @@
     </div>
     <button class="btn btn-danger btn-full" onclick="doLogout()">Abmelden</button>
     <div style="text-align:center; font-size:0.62rem; color:var(--text-dim); padding:8px 0;">
-      © 2025 Signatuur · DSGVO-konform · Daten werden nicht weitergegeben<br/>
+      © 2025 Clavis-Signatuur · DSGVO-konform · Daten werden nicht weitergegeben<br/>
       Aufbewahrungsfrist signierter Dokumente: 10 Jahre (§ 147 AO)
     </div>
   </div>
@@ -556,13 +556,13 @@ function initERPBridge() {
   // Nachrichten vom ERP empfangen
   window.addEventListener('message', handleERPMessage);
 
-  console.log('[Signatuur] ERP-Bridge aktiv — warte auf PREFILL…');
+  console.log('[Clavis-Signatuur] ERP-Bridge aktiv — warte auf PREFILL…');
 }
 
 function handleERPMessage(event) {
   // Origin-Prüfung
   if (ALLOWED_ERP_ORIGINS.length > 0 && !ALLOWED_ERP_ORIGINS.includes(event.origin)) {
-    console.warn('[Signatuur] Nachricht von unbekanntem Origin abgelehnt:', event.origin);
+    console.warn('[Clavis-Signatuur] Nachricht von unbekanntem Origin abgelehnt:', event.origin);
     return;
   }
 
@@ -570,7 +570,7 @@ function handleERPMessage(event) {
   const { type, payload } = event.data || {};
   if (!type || !type.startsWith('SIGNATUUR_')) return;
 
-  console.log('[Signatuur] ERP-Nachricht:', type, payload);
+  console.log('[Clavis-Signatuur] ERP-Nachricht:', type, payload);
 
   switch (type) {
 
@@ -648,7 +648,7 @@ function notifyERP(type, data = {}) {
   };
   // An alle senden wenn kein Origin bekannt, sonst gezielt
   window.parent.postMessage(message, erpOrigin || '*');
-  console.log('[Signatuur] → ERP:', type, message.payload);
+  console.log('[Clavis-Signatuur] → ERP:', type, message.payload);
 }
 
 // Docs nach ERP-Ref filtern (vereinfacht via description)
