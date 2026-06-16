@@ -48,6 +48,9 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Nur http/https cachen — chrome-extension, data, blob etc. ignorieren
+  if (!url.protocol.startsWith('http')) return;
+
   // Supabase API + Edge Functions → Network-First (nie cachen)
   if (url.hostname.includes('supabase.co') ||
       url.hostname.includes('supabase.io')) {
@@ -79,7 +82,8 @@ async function cacheFirst(request) {
   if (cached) return cached;
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    const url = new URL(request.url);
+    if (response.ok && url.protocol.startsWith('http')) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, response.clone());
     }
@@ -95,7 +99,8 @@ async function cacheFirst(request) {
 async function networkFirst(request) {
   try {
     const response = await fetch(request);
-    if (response.ok && request.method === 'GET') {
+    const url = new URL(request.url);
+    if (response.ok && request.method === 'GET' && url.protocol.startsWith('http')) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, response.clone());
     }
