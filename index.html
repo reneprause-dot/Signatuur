@@ -455,8 +455,8 @@
       </div>
       <div class="info-box" style="margin-top:10px; font-size:0.68rem;">
         Clavis-Signatuur erkennt automatisch wenn es in einem ERP-iFrame läuft und aktiviert die postMessage-Bridge.
-        Befehle: <code style="color:var(--gold);">SIGNATUUR_PREFILL</code>, <code style="color:var(--gold);">SIGNATUUR_OPEN_DOC</code>.<br/>
-        Events: <code style="color:var(--gold);">SIGNATUUR_CREATED</code>, <code style="color:var(--gold);">SIGNATUUR_SIGNED</code>, <code style="color:var(--gold);">SIGNATUUR_REVOKED</code>.
+        Befehle: <code style="color:var(--gold);">SIGNATUUR_PREFILL</code> (Felder: title, signerName, signerEmail, docType, description, erpRef, file), <code style="color:var(--gold);">SIGNATUUR_OPEN_DOC</code>.<br/>
+        Events: <code style="color:var(--gold);">SIGNATUUR_CREATED</code>, <code style="color:var(--gold);">SIGNATUUR_SIGNED</code>, <code style="color:var(--gold);">SIGNATUUR_REVOKED</code>, <code style="color:var(--gold);">SIGNATUUR_FILE_ACCEPTED</code>, <code style="color:var(--gold);">SIGNATUUR_FILE_REJECTED</code>.
       </div>
     </div>
     <div class="card">
@@ -602,6 +602,21 @@ function handleERPMessage(event) {
         document.getElementById('erpContextDisplay').textContent = refStr;
         document.getElementById('erpStatusBadge').textContent    = '● Aktiv';
         document.getElementById('erpStatusBadge').style.color    = 'var(--green)';
+      }
+
+      // ── Datei vom ERP übernehmen (z.B. extern hochgeladenes PDF) ──
+      // Wird per structured-clone direkt als File-Objekt übertragen,
+      // kein Base64 nötig. handlePDF() übernimmt Hash, Vorschau, Limit-Prüfung.
+      if (payload.file) {
+        if (payload.file.size > 10 * 1024 * 1024) {
+          notifyERP('SIGNATUUR_FILE_REJECTED', { fileName: payload.file.name, reason: 'Datei größer als 10 MB' });
+        } else {
+          handlePDF(payload.file).then(() => {
+            notifyERP('SIGNATUUR_FILE_ACCEPTED', { fileName: payload.file.name, size: payload.file.size });
+          }).catch(e => {
+            notifyERP('SIGNATUUR_FILE_REJECTED', { fileName: payload.file.name, reason: e.message });
+          });
+        }
       }
 
       // Zur Signatur-Seite navigieren
